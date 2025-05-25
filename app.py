@@ -1,6 +1,7 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 import logging
 import hashlib
+import json
 
 app = Flask(__name__)
 
@@ -8,8 +9,8 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Your verification token for eBay (32 chars, alphanumeric only)
-VERIFICATION_TOKEN = "SWPIGBT7ZhnEdr6tAoN72FWylgt8dc5O"
+# Your verification token for eBay (56 chars, using all allowed characters)
+VERIFICATION_TOKEN = "ZRUCBZpZ4ZpmUmzoP7mIr6QMeyjCbDoAo9g3r3Rg8p0Afq1yNf0Mdiv6"
 
 # Your endpoint URL (without trailing slash)
 ENDPOINT_URL = "https://ebay-deletion-endpoint-h5re.onrender.com/ebay/deletion"
@@ -26,23 +27,31 @@ def handle_deletion():
         # eBay verification challenge
         challenge_code = request.args.get('challenge_code')
         if challenge_code:
-            # Create SHA-256 hash: challengeCode + verificationToken + endpoint
-            hash_input = challenge_code + VERIFICATION_TOKEN + ENDPOINT_URL
-            logger.info(f"Hash input: {hash_input}")
-            
-            hash_object = hashlib.sha256(hash_input.encode('utf-8'))
-            challenge_response = hash_object.hexdigest()
+            # Use exact approach from eBay's Python documentation
+            # m = hashlib.sha256(challengeCode+verificationToken+endpoint);
+            hash_string = challenge_code + VERIFICATION_TOKEN + ENDPOINT_URL
+            m = hashlib.sha256(hash_string.encode('utf-8'))
+            challenge_response = m.hexdigest()
             
             logger.info(f"Challenge code: {challenge_code}")
             logger.info(f"Verification token: {VERIFICATION_TOKEN}")
             logger.info(f"Endpoint URL: {ENDPOINT_URL}")
+            logger.info(f"Hash input: {hash_string}")
             logger.info(f"Challenge response hash: {challenge_response}")
             
-            response = {
+            # Create response using json.dumps to avoid BOM issues
+            response_data = {
                 "challengeResponse": challenge_response
             }
             
-            return jsonify(response), 200, {'Content-Type': 'application/json'}
+            # Use Response to ensure no BOM and proper encoding
+            json_response = json.dumps(response_data, ensure_ascii=False)
+            return Response(
+                json_response,
+                status=200,
+                mimetype='application/json',
+                headers={'Content-Type': 'application/json; charset=utf-8'}
+            )
         else:
             return "eBay Deletion Endpoint - Ready for verification", 200
     
@@ -64,15 +73,17 @@ def handle_deletion():
 def test_hash():
     """Test endpoint to verify hash calculation"""
     challenge_code = request.args.get('challenge_code', 'test123')
-    hash_input = challenge_code + VERIFICATION_TOKEN + ENDPOINT_URL
-    hash_object = hashlib.sha256(hash_input.encode('utf-8'))
-    challenge_response = hash_object.hexdigest()
+    
+    # eBay's exact method
+    hash_string = challenge_code + VERIFICATION_TOKEN + ENDPOINT_URL
+    m = hashlib.sha256(hash_string.encode('utf-8'))
+    challenge_response = m.hexdigest()
     
     return jsonify({
         "challenge_code": challenge_code,
         "verification_token": VERIFICATION_TOKEN,
         "endpoint_url": ENDPOINT_URL,
-        "hash_input": hash_input,
+        "hash_input": hash_string,
         "challenge_response": challenge_response
     })
 
