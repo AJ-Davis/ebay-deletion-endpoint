@@ -11,14 +11,16 @@ logger = logging.getLogger(__name__)
 # Your verification token for eBay (32-80 chars, alphanumeric + underscore + hyphen only)
 VERIFICATION_TOKEN = "ebay_verify_5l1Y6H8VbIM0JwjWCl-IoWPVZQgHFvOph_31ddyCrAZ21IwLOw"
 
-# Your endpoint URL
+# Your endpoint URL (without trailing slash)
 ENDPOINT_URL = "https://ebay-deletion-endpoint-h5re.onrender.com/ebay/deletion"
 
 @app.route('/ebay/deletion', methods=['GET', 'POST'])
+@app.route('/ebay/deletion/', methods=['GET', 'POST'])  # Handle trailing slash
 def handle_deletion():
-    logger.info(f"Received {request.method} request to /ebay/deletion")
+    logger.info(f"Received {request.method} request to {request.path}")
     logger.info(f"Query params: {request.args}")
     logger.info(f"Headers: {dict(request.headers)}")
+    logger.info(f"Full URL: {request.url}")
     
     if request.method == 'GET':
         # eBay verification challenge
@@ -26,6 +28,9 @@ def handle_deletion():
         if challenge_code:
             # Hash challengeCode + verificationToken + endpoint as per eBay requirements
             hash_input = challenge_code + VERIFICATION_TOKEN + ENDPOINT_URL
+            logger.info(f"Challenge code: {challenge_code}")
+            logger.info(f"Verification token: {VERIFICATION_TOKEN}")
+            logger.info(f"Endpoint URL: {ENDPOINT_URL}")
             logger.info(f"Hash input: {hash_input}")
             
             # Create SHA-256 hash
@@ -68,6 +73,22 @@ def health_check():
 @app.route('/health', methods=['GET'])
 def health():
     return "OK", 200
+
+# Add a test endpoint to verify the hash calculation
+@app.route('/test-hash', methods=['GET'])
+def test_hash():
+    challenge_code = request.args.get('challenge_code', 'test123')
+    hash_input = challenge_code + VERIFICATION_TOKEN + ENDPOINT_URL
+    m = hashlib.sha256(hash_input.encode('utf-8'))
+    challenge_response = m.hexdigest()
+    
+    return jsonify({
+        "challenge_code": challenge_code,
+        "verification_token": VERIFICATION_TOKEN,
+        "endpoint_url": ENDPOINT_URL,
+        "hash_input": hash_input,
+        "challenge_response": challenge_response
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)
