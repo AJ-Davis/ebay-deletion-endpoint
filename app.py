@@ -7,8 +7,8 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Your verification token for eBay
-VERIFICATION_TOKEN = "ebay_verification_HAGFN4XqSbHxxto7KPEHDRTJK-uNylGnGbe6QyNiHcM"
+# Your verification token for eBay (32-80 chars, alphanumeric + underscore + hyphen only)
+VERIFICATION_TOKEN = "ebay_verify_5l1Y6H8VbIM0JwjWCl-IoWPVZQgHFvOph_31ddyCrAZ21IwLOw"
 
 @app.route('/ebay/deletion', methods=['GET', 'POST'])
 def handle_deletion():
