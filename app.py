@@ -8,8 +8,8 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Your verification token for eBay (32-80 chars, alphanumeric + underscore + hyphen only)
-VERIFICATION_TOKEN = "ebay_verify_5l1Y6H8VbIM0JwjWCl-IoWPVZQgHFvOph_31ddyCrAZ21IwLOw"
+# Your verification token for eBay (32 chars, alphanumeric only)
+VERIFICATION_TOKEN = "SWPIGBT7ZhnEdr6tAoN72FWylgt8dc5O"
 
 # Your endpoint URL (without trailing slash)
 ENDPOINT_URL = "https://ebay-deletion-endpoint-h5re.onrender.com/ebay/deletion"
@@ -20,34 +20,29 @@ def handle_deletion():
     logger.info(f"Received {request.method} request to {request.path}")
     logger.info(f"Query params: {request.args}")
     logger.info(f"Headers: {dict(request.headers)}")
-    logger.info(f"Full URL: {request.url}")
+    logger.info(f"User-Agent: {request.headers.get('User-Agent', 'Not provided')}")
     
     if request.method == 'GET':
         # eBay verification challenge
         challenge_code = request.args.get('challenge_code')
         if challenge_code:
-            # Hash challengeCode + verificationToken + endpoint as per eBay requirements
+            # Create SHA-256 hash: challengeCode + verificationToken + endpoint
             hash_input = challenge_code + VERIFICATION_TOKEN + ENDPOINT_URL
+            logger.info(f"Hash input: {hash_input}")
+            
+            hash_object = hashlib.sha256(hash_input.encode('utf-8'))
+            challenge_response = hash_object.hexdigest()
+            
             logger.info(f"Challenge code: {challenge_code}")
             logger.info(f"Verification token: {VERIFICATION_TOKEN}")
             logger.info(f"Endpoint URL: {ENDPOINT_URL}")
-            logger.info(f"Hash input: {hash_input}")
-            
-            # Create SHA-256 hash
-            m = hashlib.sha256(hash_input.encode('utf-8'))
-            challenge_response = m.hexdigest()
+            logger.info(f"Challenge response hash: {challenge_response}")
             
             response = {
                 "challengeResponse": challenge_response
             }
             
-            logger.info(f"eBay Verification Challenge: {challenge_code}")
-            logger.info(f"Responding with hash: {challenge_response}")
-            
-            # Return JSON response with proper headers
-            resp = jsonify(response)
-            resp.headers['Content-Type'] = 'application/json'
-            return resp, 200
+            return jsonify(response), 200, {'Content-Type': 'application/json'}
         else:
             return "eBay Deletion Endpoint - Ready for verification", 200
     
@@ -56,31 +51,22 @@ def handle_deletion():
         try:
             data = request.get_json()
             logger.info(f"eBay Deletion Notification Received: {data}")
-            print("eBay Deletion Received:", data)
             
             # Process the deletion notification here
-            # You can add your business logic to handle user data cleanup
+            # You can add your business logic to handle account deletions
             
             return '', 200
         except Exception as e:
             logger.error(f"Error processing deletion notification: {e}")
-            return '', 200
+            return '', 500
 
-@app.route('/', methods=['GET'])
-def health_check():
-    return "eBay Deletion Notification Endpoint - Active", 200
-
-@app.route('/health', methods=['GET'])
-def health():
-    return "OK", 200
-
-# Add a test endpoint to verify the hash calculation
-@app.route('/test-hash', methods=['GET'])
+@app.route('/test-hash')
 def test_hash():
+    """Test endpoint to verify hash calculation"""
     challenge_code = request.args.get('challenge_code', 'test123')
     hash_input = challenge_code + VERIFICATION_TOKEN + ENDPOINT_URL
-    m = hashlib.sha256(hash_input.encode('utf-8'))
-    challenge_response = m.hexdigest()
+    hash_object = hashlib.sha256(hash_input.encode('utf-8'))
+    challenge_response = hash_object.hexdigest()
     
     return jsonify({
         "challenge_code": challenge_code,
@@ -89,6 +75,11 @@ def test_hash():
         "hash_input": hash_input,
         "challenge_response": challenge_response
     })
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    return jsonify({"status": "healthy", "endpoint": "ready"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
