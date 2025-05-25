@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 import logging
+import hashlib
 
 app = Flask(__name__)
 
@@ -9,6 +10,9 @@ logger = logging.getLogger(__name__)
 
 # Your verification token for eBay (32-80 chars, alphanumeric + underscore + hyphen only)
 VERIFICATION_TOKEN = "ebay_verify_5l1Y6H8VbIM0JwjWCl-IoWPVZQgHFvOph_31ddyCrAZ21IwLOw"
+
+# Your endpoint URL
+ENDPOINT_URL = "https://ebay-deletion-endpoint-h5re.onrender.com/ebay/deletion"
 
 @app.route('/ebay/deletion', methods=['GET', 'POST'])
 def handle_deletion():
@@ -20,13 +24,20 @@ def handle_deletion():
         # eBay verification challenge
         challenge_code = request.args.get('challenge_code')
         if challenge_code:
-            # Respond with verification token and challenge code in exact format eBay expects
+            # Hash challengeCode + verificationToken + endpoint as per eBay requirements
+            hash_input = challenge_code + VERIFICATION_TOKEN + ENDPOINT_URL
+            logger.info(f"Hash input: {hash_input}")
+            
+            # Create SHA-256 hash
+            m = hashlib.sha256(hash_input.encode('utf-8'))
+            challenge_response = m.hexdigest()
+            
             response = {
-                "challengeResponse": challenge_code,
-                "verificationToken": VERIFICATION_TOKEN
+                "challengeResponse": challenge_response
             }
+            
             logger.info(f"eBay Verification Challenge: {challenge_code}")
-            logger.info(f"Responding with: {response}")
+            logger.info(f"Responding with hash: {challenge_response}")
             
             # Return JSON response with proper headers
             resp = jsonify(response)
