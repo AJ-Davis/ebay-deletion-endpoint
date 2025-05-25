@@ -47,7 +47,10 @@ def handle_deletion():
                 
                 return jsonify(response)
             else:
-                return "eBay Deletion Endpoint - Ready for verification", 200
+                # If no challenge_code, eBay might be just probing.
+                # Return 204 No Content, as there's nothing to show for a GET without challenge.
+                logger.warning("GET request to /ebay/deletion without challenge_code.")
+                return '', 204
         
         elif request.method == 'POST':
             # Actual deletion notification
